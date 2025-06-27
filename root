@@ -1,0 +1,195 @@
+'''Root directory structure for the open-source gamified education platform.'''
+
+# File: main.py
+# Purpose: Entrypoint for web+VR gamified education platform.
+
+from fastapi import FastAPI, WebSocket
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.cors import CORSMiddleware
+from app.routes import register_routes
+
+app = FastAPI(title="OpenGamifyEdu")
+
+# Allow frontend dev environments to connect
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount static frontend files (React, Svelte, or Three.js/VR app)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Register backend routes and WebSocket events
+register_routes(app)
+
+@app.get("/")
+def root():
+    return {"message": "Welcome to the OpenGamifyEdu platform!"}
+
+if __name__ == '__main__':
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+
+''' File: app/routes.py '''
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from app.sandbox import execute_code
+
+router = APIRouter()
+
+def register_routes(app):
+    app.include_router(router)
+
+@router.post("/run-code")
+async def run_code(request: dict):
+    language = request.get("language")
+    code = request.get("code")
+    return await execute_code(language, code)
+
+@router.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await websocket.send_text(f"Echo: {data}")
+    except WebSocketDisconnect:
+        pass
+
+
+''' File: app/sandbox.py '''
+import subprocess
+import tempfile
+import os
+
+# Very basic execution sandbox (Python only — expandable)
+async def execute_code(language: str, code: str):
+    if language != "python":
+        return {"error": "Language not yet supported."}
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".py") as tmp:
+            tmp.write(code.encode("utf-8"))
+            tmp_path = tmp.name
+        result = subprocess.run(["python3", tmp_path], capture_output=True, timeout=5)
+        output = result.stdout.decode()
+        error = result.stderr.decode()
+        os.unlink(tmp_path)
+        return {"output": output, "error": error}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+''' File: static/index.html '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OpenGamifyEdu</title>
+</head>
+<body>
+  <h1>Welcome to OpenGamifyEdu</h1>
+  <p>The universal open-source gamified learning system.</p>
+</body>
+</html>
+
+
+''' File: requirements.txt '''
+fastapi
+uvicorn
+starlette
+
+
+''' File: LICENSE '''
+OpenGamifyEdu Community License v1.0
+Last Updated: June 27, 2025
+
+Copyright (c) 2025 Ricky Foster and Contributors
+
+This license governs use of the accompanying software, platform, or content (the “Work”).
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this Work, to use, modify, distribute, and build upon the Work for personal, educational, research, or non-commercial purposes, subject to the following conditions:
+
+1. Non-Commercial Use Only
+   - The Work may not be used for any commercial purpose, including but not limited to:
+     - Selling the Work or any derivative.
+     - Integrating the Work into any product or service offered for a fee.
+     - Monetizing access, distribution, or services related to the Work.
+
+2. Attribution Required
+   - You must retain the above copyright notice and this license in all copies or substantial portions of the Work.
+   - You must clearly credit “OpenGamifyEdu by Ricky Foster and Contributors” in any public or shared version.
+
+3. Share-Alike
+   - Any modified or derivative version of the Work must be released under the same license as this one.
+
+4. No Warranty
+   - THE WORK IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY.
+
+5. Revocation for Abuse
+   - Any use of the Work in violation of the Zero Harm principle (e.g., harassment, surveillance, exploitation, or hate campaigns) may result in revocation of this license.
+
+---
+
+For Commercial Use:
+Written permission may be requested by contacting therickyfoster@outlook.com.
+
+---
+
+This license ensures this work remains free to use, free to learn from, and free from exploitation — forever.
+
+Signed,
+Ricky Foster
+Founder, OpenGamifyEdu
+
+
+''' File: README.md '''
+# OpenGamifyEdu
+
+**The open-source, forever-free gamified learning engine for the next generation.**
+
+---
+
+## 🌟 Vision
+OpenGamifyEdu is more than a platform — it's a movement. Designed for educators, learners, dreamers, and developers, this is the ultimate learning ecosystem powered by gamification, storytelling, community, and creativity.
+
+## 🎮 What It Does
+- Turns learning into quests, skills, XP, and narrative-driven progress.
+- Integrates real-world task management with RPG-style character development.
+- Supports VR for immersive classrooms, science labs, or history adventures.
+- Enables plugin support across languages (Python now, more coming).
+- Encourages open collaboration from a global community.
+
+## 🛠️ Features
+- 🌐 FastAPI backend with real-time WebSocket support
+- 🧠 Code execution sandbox (Python; modular for others)
+- 🎨 Static frontend mount point (VR, Three.js, or your own UI)
+- 🔌 Plugin-ready design for custom expansions
+- 🔒 Custom license: Non-commercial, educational use only — forever
+
+## 🔏 License
+This project is released under the **OpenGamifyEdu Community License v1.0**, which means:
+
+- ✅ Use it, modify it, share it, improve it
+- ✅ Build learning quests, games, and experiences with it
+- ❌ Do NOT sell it, repackage it, or use it commercially
+
+See [`LICENSE`](./LICENSE) for full terms.
+
+## ❤️ Get Involved
+We believe in decentralized education, gamified learning, and a future where no student is left unmotivated. Join the mission:
+
+- 💬 Suggest ideas, features, or quests
+- 🛠️ Contribute code, design, or translations
+- 🌍 Start a local fork and teach with it in your own community
+
+## 👨‍🚀 Creator
+**Ricky Foster** — Alberta-based developer, creator, and guardian of open-source education.
+
+Contact: therickyfoster@outlook.com
+
+---
+
+**May this platform stay free, useful, and joyful for all time.**
